@@ -1,8 +1,8 @@
 <template>
 	<div id="app">
 		<div>
-			<h1 style="text-align: center;">年度最佳MVP</h1>
-			<table style="width:600px;height:300px;position: absolute;left:35%;" border="1">
+			<h1 style="text-align: left;">年度最佳MVP</h1>
+			<table style="width:600px;height:300px;" border="1">
 				<thead>
 					<tr>
 						<th>
@@ -58,6 +58,13 @@
 					</tr>
 				</tbody>
 			</table>
+			<ul v-if="orderList">
+				<li style="text-align:left;" v-for="(item,index) in orderList" :key="index">
+					<span>id: {{item.id}}</span>&nbsp;&nbsp;&nbsp;&nbsp;
+					<span>商品名称: {{item.name}}</span>&nbsp;&nbsp;&nbsp;&nbsp;
+					<span>订单号: {{item.goodID}}</span>&nbsp;&nbsp;&nbsp;&nbsp;
+				</li>
+			</ul>
 		</div>
 	</div>
 </template>
@@ -67,11 +74,6 @@
 	export default {
 		data() {
 			return {
-				address: '',
-				count: '',
-				balance: 0,
-				status: '待处理...',
-				MetaCoin: {},
 				Voting:{},
 				curry:0,
 				tps:0,
@@ -80,75 +82,83 @@
 					{name:"Curry",num:0},
 					{name:"Thompson",num:0},
 					{name:"Durant",num:0},
+				],
+				path:"ws://127.0.0.1:28019/imserver/1",
+           		socket:"",
+				orderList:[
+					{id:1,name:"",goodID:""}
 				]
 			}
 		},
 		name: 'app',
 		components: {
+
 		},
 		mounted() {
 			this.init(() => {
 				this.getPerson()
 			});
-			this.init2(() => {
-				this.getBlance()
-			});
+			this.wsInit()
 		},
 		methods: {
+			wsInit: function () {
+            if(typeof(WebSocket) === "undefined"){
+                alert("您的浏览器不支持socket")
+            }else{
+                // 实例化socket
+                this.socket = new WebSocket(this.path)
+                // 监听socket连接
+                this.socket.onopen = this.open
+                // 监听socket错误信息
+                this.socket.onerror = this.error
+                // 监听socket消息
+                this.socket.onmessage = this.getMessage
+            }
+        },
+        open: function () {
+            console.log("socket连接成功")
+        },
+        error: function () {
+            console.log("连接错误")
+        },
+        getMessage: function (msg) {
+            console.log(msg.data)
+
+			// {"result":{"msg":"下单成功！！","orderID":"1241241212","userID":1}}
+			var data=JSON.parse(msg.data).result
+			console.info("data:",data)
+			this.orderList.push({
+				id:data.userID,
+				name:data.msg,
+				goodID:data.orderID
+			})
+
+        },
+        send: function () {
+            this.socket.send(params)
+        },
+        close: function () {
+            console.log("socket已经关闭")
+        },destroyed () {
+        // 销毁监听
+        this.socket.onclose = this.close
+    	},
+
 			async getPerson(){
+				console.info("======================================================")
 				for(var i in this.person){
 					this.person[i].num=await this.Voting.getTotol(bytes32({input:this.person[i].name}))
-					console.info(i,this.person)
+					console.info("候选人：",this.person[i].name," 票数：",this.person[i].num)
 				}
 			},
 			async voteForCandidate(name){
 				await this.Voting.handleVote(bytes32({ input:name})).then(res=>{})
 				this.getPerson()
 			},
-			// async totol(name){
-			// 	return await this.Voting.getTotol(name);
-			// },
-			delBlank(str) {
-				return str.replace(/\s*/g, "");
-			},
-
-			async getBlance() {
-				let balance = await this.MetaCoin.getBalance();
-				this.balance = balance;
-			},
-			statu(str) {
-				this.status = str;
-			},
-			send() {
-				let { address, count, delBlank } = this;
-				address = delBlank(address);
-				count = parseInt(count);
-				console.log(address, count);
-				if (address === "" || count === "") {
-					alert('请输入地址和数量')
-				}
-				else {
-					this.MetaCoin.send(address, count).then(res => {
-						console.log(res);
-						this.getBlance()
-						this.statu('交易成功')
-					}).catch(err => {
-						console.log(err);
-					})
-				}
-
-			},
 			async init(callback) {
 				this.$DApp.voting.init().then(res => {
 					this.Voting = res;
 					console.log(this.Voting);
-					callback();
-				})
-			},
-			async init2(callback) {
-				this.$DApp.metaCoin.init().then(res => {
-					this.MetaCoin = res;
-					console.log(this.MetaCoin);
 					callback();
 				})
 			}
@@ -158,8 +168,7 @@
 
 <style>
 	#app {
-		margin-top: 200px;
-		text-align: center;
-
+		/* margin-top: 200px;
+		text-align: center; */
 	}
 </style>
